@@ -41,4 +41,10 @@ jobs:
           for patch in patches/*.patch; do
             (cd vendor/camofox-browser && git apply --ignore-space-change --ignore-whitespace "$GITHUB_WORKSPACE/$patch")
           done
+          mkdir -p vendor/camofox-browser/dist
+          curl -fL "https://github.com/daijiro/camoufox/releases/download/v135.0.1-beta.24/camoufox-135.0.1-beta.24-lin.x86_64.zip" \
+            -o vendor/camofox-browser/dist/camoufox-x86_64.zip
+          curl -fL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
+            -o vendor/camofox-browser/dist/yt-dlp-x86_64
+          chmod +x vendor/camofox-browser/dist/yt-dlp-x86_64
           docker build -t camofox-browser:vnc vendor/camofox-browser
