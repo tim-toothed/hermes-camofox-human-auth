@@ -29,11 +29,11 @@ The installer clones the pinned Camofox source into `vendor/camofox-browser`, ap
 Install the helper plugin and skill in Hermes (after publishing):
 
 ```powershell
-hermes plugins install https://github.com/OWNER/REPO/tree/main/hermes_plugin
-hermes skills install https://raw.githubusercontent.com/OWNER/REPO/main/skills/camofox-vnc-auth/SKILL.md
+hermes plugins install https://github.com/tim-toothed/hermes-camofox-human-auth/tree/main/hermes_plugin
+hermes skills install https://raw.githubusercontent.com/tim-toothed/hermes-camofox-human-auth/main/skills/camofox-vnc-auth/SKILL.md
 ```
 
-The plugin adds `camofox_vnc_status`, which reports API availability and the noVNC URL. The skill controls the safe human-authentication handoff. Replace `OWNER/REPO` after the first release.
+The plugin adds `camofox_vnc_status`, which reports API availability and the noVNC URL. The skill controls the safe human-authentication handoff.
 
 ## Runtime
 
@@ -57,4 +57,4 @@ Ports are bound to `127.0.0.1` only. Do not change them to `0.0.0.0` unless the 
 
 ## Repository status
 
-This is the local integration skeleton. Before public release, add CI image publishing (GHCR), pin the exact upstream Camofox commit, and run a clean-machine install test.
+The public repository contains the reproducible local integration package. The GitHub Actions workflow builds the image and runs smoke checks; GHCR publishing and clean-machine installation remain optional follow-up work.
