@@ -1,4 +1,4 @@
-name: camofox-vnc
+name: validate-distribution
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,19 +32,16 @@ jobs:
           assert skill.startswith('---') and 'name: camofox-vnc-auth' in skill
           yaml.safe_load(pathlib.Path('hermes_plugin/plugin.yaml').read_text())
           PY
+          python -m py_compile hermes_plugin/__init__.py
 
-      - name: Build patched Camofox source
+      - name: Check pinned Camofox patches
         run: |
-          mkdir -p vendor
           git clone --depth 1 --branch master https://github.com/jo-inc/camofox-browser.git vendor/camofox-browser
           test "$(git -C vendor/camofox-browser rev-parse HEAD)" = "ce3a3b085aacba73eb8de6c51733c19fb13bfae4"
           for patch in patches/*.patch; do
-            (cd vendor/camofox-browser && git apply --ignore-space-change --ignore-whitespace "$GITHUB_WORKSPACE/$patch")
+            (cd vendor/camofox-browser && git apply --check --ignore-space-change --ignore-whitespace "$GITHUB_WORKSPACE/$patch")
           done
-          mkdir -p vendor/camofox-browser/dist
-          curl -fL "https://github.com/daijiro/camoufox/releases/download/v135.0.1-beta.24/camoufox-135.0.1-beta.24-lin.x86_64.zip" \
-            -o vendor/camofox-browser/dist/camoufox-x86_64.zip
-          curl -fL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
-            -o vendor/camofox-browser/dist/yt-dlp-x86_64
-          chmod +x vendor/camofox-browser/dist/yt-dlp-x86_64
-          docker build -t camofox-browser:vnc vendor/camofox-browser
+          node --check vendor/camofox-browser/server.js
+
+      - name: Validate Compose syntax
+        run: docker compose config -q
