@@ -1,0 +1,27 @@
+services:
+  camofox-vnc:
+    build:
+      context: ${CAMOFOX_SOURCE_DIR:-./vendor/camofox-browser}
+      dockerfile: Dockerfile
+      args:
+        ARCH: ${CAMOFOX_ARCH:-x86_64}
+        CAMOUFOX_VERSION: ${CAMOUFOX_VERSION:-135.0.1}
+        CAMOUFOX_RELEASE: ${CAMOUFOX_RELEASE:-beta.24}
+    image: ${CAMOFOX_VNC_IMAGE:-camofox-browser:vnc}
+    container_name: ${CAMOFOX_CONTAINER_NAME:-camofox-vnc}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CAMOFOX_API_PORT:-9378}:9377"
+      - "127.0.0.1:${CAMOFOX_NOVNC_PORT:-6089}:6089"
+    environment:
+      ENABLE_VNC: "1"
+      VNC_BIND: "0.0.0.0"
+      NOVNC_PORT: "6089"
+      VNC_PORT: "5911"
+      VNC_PASSWORD: "${VNC_PASSWORD:?Set VNC_PASSWORD in .env}"
+    volumes:
+      - camofox-data:/root/.camofox
+
+volumes:
+  camofox-data:
+    name: ${CAMOFOX_VOLUME_NAME:-camofox-data}

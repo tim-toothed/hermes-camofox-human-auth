@@ -1,0 +1,31 @@
+name: camofox-vnc
+version: 0.1.0
+description: Build and smoke-test the patched Camofox/noVNC distribution.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate distribution files
+        run: |
+          test -f docker-compose.yml
+          test -f skills/camofox-vnc-auth/SKILL.md
+          python - <<'PY'
+          import pathlib, yaml
+          p=pathlib.Path('skills/camofox-vnc-auth/SKILL.md').read_text()
+          assert p.startswith('---') and 'name: camofox-vnc-auth' in p
+          yaml.safe_load(pathlib.Path('hermes-plugin/plugin.yaml').read_text())
+          PY
+      - name: Build patched Camofox source
+        run: |
+          mkdir -p vendor
+          git clone --depth 1 --branch master https://github.com/jo-inc/camofox-browser.git vendor/camofox-browser
+          test "$(git -C vendor/camofox-browser rev-parse HEAD)" = "ce3a3b085aacba73eb8de6c51733c19fb13bfae4"
+          for patch in patches/*.patch; do (cd vendor/camofox-browser && git apply --ignore-space-change --ignore-whitespace "$GITHUB_WORKSPACE/$patch"); done
+          docker build -t camofox-browser:vnc vendor/camofox-browser

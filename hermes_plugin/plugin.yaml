@@ -1,0 +1,4 @@
+name: camofox-vnc
+version: 0.1.0
+description: "Local Camofox Docker + noVNC integration. Reports backend health and the protected local noVNC URL for interactive authentication."
+author: Timur / Hermes community
