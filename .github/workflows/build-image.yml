@@ -44,4 +44,4 @@ jobs:
           node --check vendor/camofox-browser/server.js
 
       - name: Validate Compose syntax
-        run: docker compose config -q
+        run: VNC_PASSWORD=ci-placeholder docker compose config -q
