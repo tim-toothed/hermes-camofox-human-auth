@@ -1,6 +1,12 @@
-# Hermes Camofox + noVNC
+# Camofox Human Auth
 
-Reproducible local Camofox Docker distribution for Hermes Agent with interactive, human-managed authentication through noVNC.
+Universal human-controlled authentication for Hermes through **Camofox Browser**,
+the API/server layer powered by the **Camoufox** browser engine.
+
+The plugin requires a Camofox backend. It does not automatically switch an
+existing Hermes browser provider; users with Chromium, Browserbase, Browser
+Use, or another provider are warned and must explicitly configure Camofox.
+
 
 ## What this solves
 
@@ -16,24 +22,40 @@ Reproducible local Camofox Docker distribution for Hermes Agent with interactive
 - Linux/macOS: Docker Engine/Desktop, Git, POSIX shell;
 - Hermes Agent installed and available as `hermes`.
 
-## Install
+## Install the unified plugin
 
-```powershell
-Copy-Item .env.example .env
-# Edit .env and set a local VNC_PASSWORD.
-.\scripts\install.ps1
+Run the setup script from this repository. It detects the operating system and asks:
+
+```text
+Choose Camofox backend:
+1. Local: Native headed/headless
+2. VPS/Server: Docker + noVNC
 ```
 
-The installer clones the pinned Camofox source into `vendor/camofox-browser`, applies the audited patches, downloads the required binaries, builds the image, starts Docker Compose, and configures Hermes to use `http://127.0.0.1:9378`.
-
-Install the helper plugin and skill in Hermes (after publishing):
+Windows:
 
 ```powershell
-hermes plugins install https://github.com/tim-toothed/hermes-camofox-human-auth/tree/main/hermes_plugin
-hermes skills install https://raw.githubusercontent.com/tim-toothed/hermes-camofox-human-auth/main/skills/camofox-vnc-auth/SKILL.md
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+Get-ChildItem -Recurse -Filter "*.ps1" | Unblock-File
+.\scripts\setup.ps1
 ```
 
-The plugin adds `camofox_vnc_status`, which reports API availability and the noVNC URL. The skill controls the safe human-authentication handoff.
+macOS/Linux:
+
+```bash
+chmod +x scripts/*.sh
+./scripts/setup.sh
+```
+
+Install the one plugin package:
+
+```powershell
+hermes plugins install --enable tim-toothed/hermes-camofox-human-auth
+```
+
+The plugin bundles and registers the universal skill as `camofox-human-auth:human-auth`; a separate `hermes skills install` command is not required.
+
+The Docker files in this repository remain the VPS/Server backend and are not modified by the native setup path.
 
 ## Runtime
 

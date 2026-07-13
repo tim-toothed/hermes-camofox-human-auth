@@ -1,0 +1,71 @@
+diff --git a/server.js b/server.js
+index 810bbdb..native-auth 100644
+--- a/server.js
++++ b/server.js
+@@ -373,6 +373,9 @@
+ });
+ 
+ let browser = null;
++// Runtime display mode for the native human-auth handoff. Docker/Linux Xvfb
++// keeps its existing behavior; Windows/macOS can request a native window.
++let nativeDisplayMode = (process.env.CAMOFOX_DISPLAY_MODE || 'auto').toLowerCase();
+ let _lastBrowserPid = null; // Track PID independently for force-kill after close
+ let _browserClosePromise = null; // Shared promise for concurrent close serialization
+ let _lastBrowserRestartAt = 0; // Timestamp of last browser relaunch (for stale tab detection)
+@@ -961,6 +964,16 @@
+     }
+ 
+     const useVirtualDisplay = !!vdDisplay;
++    const displayMode = nativeDisplayMode;
++    const nativeHeaded = displayMode === 'headed' && os.platform() !== 'linux';
++    const nativeHeadless = displayMode === 'headless';
++    const useHeaded = nativeHeaded || (!nativeHeadless && useVirtualDisplay);
++    const nativeWindow = useHeaded && os.platform() !== 'linux'
++      ? [
++          Number.parseInt(process.env.CAMOFOX_WINDOW_WIDTH || '1280', 10),
++          Number.parseInt(process.env.CAMOFOX_WINDOW_HEIGHT || '720', 10),
++        ]
++      : undefined;
+     log('info', 'launching camoufox', {
+       hostOS,
+       attempt,
+@@ -976,7 +989,8 @@
+     try {
+       const options = await launchOptions({
+         executable_path: externalCamoufox?.executablePath,
+-        headless: useVirtualDisplay ? false : true,
++        headless: !useHeaded,
++        window: nativeWindow,
+         os: hostOS,
+         humanize: true,
+         enable_cache: true,
+@@ -5358,6 +5372,29 @@
+   } catch (err) {
+     log('error', 'openclaw tab open failed', { reqId: req.reqId, error: err.message });
+     handleRouteError(err, req, res);
++  }
++});
++
++// POST /admin/display-mode - switch native headed/headless mode.
++// This is intentionally admin-key protected: it restarts the browser process.
++app.post('/admin/display-mode', async (req, res) => {
++  try {
++    const adminKey = req.headers['x-admin-key'];
++    const expectedKey = CONFIG.adminKey || process.env.CAMOFOX_ADMIN_KEY || '';
++    if (!expectedKey || !adminKey || !timingSafeCompare(adminKey, expectedKey)) {
++      return res.status(403).json({ error: 'Forbidden' });
++    }
++    const mode = String(req.body?.mode || '').toLowerCase();
++    if (!['headed', 'headless'].includes(mode)) {
++      return res.status(400).json({ error: 'mode must be headed or headless' });
++    }
++    nativeDisplayMode = mode;
++    await closeAllSessions('display_mode_switch', { clearDownloads: true, clearLocks: true });
++    await closeBrowserFully('display_mode_switch');
++    await ensureBrowser();
++    res.json({ ok: true, mode, browserRunning: true });
++  } catch (err) {
++    res.status(500).json({ ok: false, error: safeError(err) });
+   }
+ });
+ 
