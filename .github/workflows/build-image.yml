@@ -24,15 +24,16 @@ jobs:
       - name: Validate distribution files
         run: |
           test -f docker-compose.yml
-          test -f skills/camofox-vnc-auth/SKILL.md
-          test -f hermes_plugin/plugin.yaml
+          test -f skills/human-auth/SKILL.md
+          test -f plugin.yaml
+          test -f __init__.py
           python - <<'PY'
           import pathlib, yaml
-          skill = pathlib.Path('skills/camofox-vnc-auth/SKILL.md').read_text()
-          assert skill.startswith('---') and 'name: camofox-vnc-auth' in skill
-          yaml.safe_load(pathlib.Path('hermes_plugin/plugin.yaml').read_text())
+          skill = pathlib.Path('skills/human-auth/SKILL.md').read_text()
+          assert skill.startswith('---') and 'name: human-auth' in skill
+          yaml.safe_load(pathlib.Path('plugin.yaml').read_text())
           PY
-          python -m py_compile hermes_plugin/__init__.py
+          python -m py_compile __init__.py
 
       - name: Check pinned Camofox patches
         run: |
