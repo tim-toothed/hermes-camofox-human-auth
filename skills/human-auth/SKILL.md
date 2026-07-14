@@ -18,17 +18,21 @@ Camofox Human Auth tools and this skill first.**
    Docker, `docker run`, `hermes browser`, Chrome, Playwright, or a generic
    Camofox server to solve an auth task when this plugin is installed.
 2. **Never create a new isolated profile.** Reuse the configured Human Auth
-   profile and the same identifiers for the entire handoff:
+   session and keep the same identifiers for the entire handoff. The default
+   identifiers are:
 
    ```text
    user_id: hermes
    session_key: native-auth
-   profile: <plugin>/data/profiles
    ```
 
-   The exact values may be supplied by the user or environment, but they must
-   remain unchanged between `camofox_auth_open`, the user's manual login,
-   `camofox_auth_finish`, and the final headless browser check.
+   Use the values returned by `camofox_backend_status` or `camofox_auth_open` if
+   the deployment overrides them. **Never hardcode or pass a host filesystem
+   path as the profile for Docker.** In Local native mode the profile is a
+   local directory; in Docker mode the profile belongs to the Camofox container
+   or mounted volume and must be managed by that backend. The model should use
+   the reported `profile_dir` only for identity/diagnostics, not to construct a
+   second browser runtime.
 3. `powershell -NoProfile` only means “do not load the shell's PowerShell
    customizations.” It is **not** a browser profile. Do not interpret it as a
    reason to create or change a Camofox profile.
