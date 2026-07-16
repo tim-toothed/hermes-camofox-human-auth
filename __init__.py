@@ -19,6 +19,18 @@ def _backend() -> str:
     return os.getenv("CAMOFOX_HUMAN_AUTH_BACKEND", "native").strip().lower() or "native"
 
 
+def _profile_dir() -> str:
+    configured = os.getenv("CAMOFOX_PROFILE_DIR", "").strip()
+    return configured or str(Path(__file__).parent / "data" / "profiles")
+
+
+def _session_defaults() -> tuple[str, str]:
+    return (
+        os.getenv("CAMOFOX_HUMAN_AUTH_USER_ID", "hermes").strip() or "hermes",
+        os.getenv("CAMOFOX_HUMAN_AUTH_SESSION_KEY", "native-auth").strip() or "native-auth",
+    )
+
+
 def _base_url() -> str:
     default = "http://127.0.0.1:9378" if _backend() == "docker" else "http://127.0.0.1:9377"
     return os.getenv("CAMOFOX_HUMAN_AUTH_URL", default).rstrip("/")
@@ -88,7 +100,16 @@ def _ensure_native_backend() -> None:
 
 
 def _status(_args=None, **_kwargs):
-    result = {"backend": _backend(), "camofox_url": _base_url(), "api_ok": False, "ready": False}
+    default_user_id, default_session_key = _session_defaults()
+    result = {
+        "backend": _backend(),
+        "camofox_url": _base_url(),
+        "profile_dir": _profile_dir(),
+        "default_user_id": default_user_id,
+        "default_session_key": default_session_key,
+        "api_ok": False,
+        "ready": False,
+    }
     if _backend() == "docker":
         result["novnc_url"] = _novnc_url()
     try:
@@ -104,20 +125,21 @@ def _status(_args=None, **_kwargs):
 def _auth_open(args=None, **_kwargs):
     args = args or {}
     url = str(args.get("url", "")).strip()
-    user_id = str(args.get("user_id", os.getenv("CAMOFOX_HUMAN_AUTH_USER_ID", "hermes"))).strip()
-    session_key = str(args.get("session_key", os.getenv("CAMOFOX_HUMAN_AUTH_SESSION_KEY", "human-auth"))).strip()
+    default_user_id, default_session_key = _session_defaults()
+    user_id = str(args.get("user_id", default_user_id)).strip()
+    session_key = str(args.get("session_key", default_session_key)).strip()
     if not url or not user_id or not session_key:
         return json.dumps({"ok": False, "error": "url, user_id and session_key are required"})
     headed_requested = False
     try:
         if _backend() == "docker":
             result = _request("/tabs", {"userId": user_id, "sessionKey": session_key, "url": url})
-            return json.dumps({"ok": True, "backend": "docker", "tab": result, "user_action_url": _novnc_url()}, ensure_ascii=False)
+            return json.dumps({"ok": True, "backend": "docker", "user_id": user_id, "session_key": session_key, "profile_dir": _profile_dir(), "tab": result, "user_action_url": _novnc_url()}, ensure_ascii=False)
         _ensure_native_backend()
         mode = _request("/admin/display-mode", {"mode": "headed"}, timeout=60)
         headed_requested = True
         tab = _request("/tabs", {"userId": user_id, "sessionKey": session_key, "url": url}, timeout=90)
-        return json.dumps({"ok": True, "backend": "native", "mode": mode, "tab": tab, "window_opened": True}, ensure_ascii=False)
+        return json.dumps({"ok": True, "backend": "native", "user_id": user_id, "session_key": session_key, "profile_dir": _profile_dir(), "mode": mode, "tab": tab, "window_opened": True}, ensure_ascii=False)
     except Exception as exc:
         if headed_requested:
             try:
@@ -129,18 +151,19 @@ def _auth_open(args=None, **_kwargs):
 
 def _auth_finish(args=None, **_kwargs):
     args = args or {}
-    user_id = str(args.get("user_id", os.getenv("CAMOFOX_HUMAN_AUTH_USER_ID", "hermes"))).strip()
-    session_key = str(args.get("session_key", os.getenv("CAMOFOX_HUMAN_AUTH_SESSION_KEY", "human-auth"))).strip()
+    default_user_id, default_session_key = _session_defaults()
+    user_id = str(args.get("user_id", default_user_id)).strip()
+    session_key = str(args.get("session_key", default_session_key)).strip()
     url = str(args.get("url", "")).strip()
     try:
         if _backend() == "docker":
-            return json.dumps({"ok": True, "backend": "docker", "message": "Keep using the existing noVNC session and verify the page."}, ensure_ascii=False)
+            return json.dumps({"ok": True, "backend": "docker", "user_id": user_id, "session_key": session_key, "profile_dir": _profile_dir(), "message": "Keep using the existing noVNC session and verify the page."}, ensure_ascii=False)
         _ensure_native_backend()
         mode = _request("/admin/display-mode", {"mode": "headless"}, timeout=60)
         tab = None
         if url:
             tab = _request("/tabs", {"userId": user_id, "sessionKey": session_key, "url": url}, timeout=90)
-        return json.dumps({"ok": True, "backend": "native", "mode": mode, "tab": tab, "headless_resumed": True}, ensure_ascii=False)
+        return json.dumps({"ok": True, "backend": "native", "user_id": user_id, "session_key": session_key, "profile_dir": _profile_dir(), "mode": mode, "tab": tab, "headless_resumed": True}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"ok": False, "error": str(exc), "backend": _backend()}, ensure_ascii=False)
 
@@ -197,7 +220,7 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="camofox_auth_open",
         toolset="browser",
-        schema={"name": "camofox_auth_open", "description": "Open a user-controlled authentication surface for any login, registration, SSO, MFA, OTP, CAPTCHA, or device-confirmation flow. Never pass secrets as arguments.", "parameters": {"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
+        schema={"name": "camofox_auth_open", "description": "Open the existing user-controlled Camofox auth surface using the configured persistent profile. Use for any login, registration, SSO, MFA, OTP, CAPTCHA, or device-confirmation flow. Reuse the same user_id=hermes and session_key=native-auth; never pass secrets and never create a new profile.", "parameters": {"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
         handler=_auth_open,
         check_fn=lambda: True,
         description="Open native headed Camoufox or return the Docker/noVNC handoff surface.",
@@ -206,7 +229,7 @@ def register(ctx) -> None:
     ctx.register_tool(
         name="camofox_auth_finish",
         toolset="browser",
-        schema={"name": "camofox_auth_finish", "description": "Finish a user-controlled authentication handoff after the user says it is complete. Do not accept passwords or OTP values.", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
+        schema={"name": "camofox_auth_finish", "description": "Finish the existing user-controlled authentication handoff using exactly the same persistent profile, user_id, and session_key returned by camofox_auth_open. Do not accept passwords or OTP values and do not open a new tab/profile.", "parameters": {"type": "object", "properties": {"url": {"type": "string"}, "user_id": {"type": "string"}, "session_key": {"type": "string"}}, "additionalProperties": False}},
         handler=_auth_finish,
         check_fn=lambda: True,
         description="Return native Camofox to headless mode after the user completes authentication.",
