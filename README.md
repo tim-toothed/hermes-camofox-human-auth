@@ -36,7 +36,45 @@ Choose Camofox backend:
 2. VPS/Server: Docker + noVNC
 ```
 
-The setup does not silently replace an existing Hermes browser provider. If no
+## Update an existing Windows native installation
+
+Use this procedure to replace an old/broken human-auth plugin while preserving
+its persistent browser profiles and Hermes configuration. It updates only the
+tracked plugin code; do **not** delete the plugin `data/` directory or the
+Hermes `.env` file.
+
+1. Stop the existing native Camofox process, if it is running on port `9377`.
+2. In the installed plugin directory, fetch and reset the plugin to the current
+   published revision:
+
+```powershell
+$Plugin = Join-Path (& hermes config path | Split-Path -Parent) 'plugins\camofox-human-auth'
+git -C $Plugin fetch origin
+# This replaces old plugin code only. Ignored data/profiles and .env are retained.
+git -C $Plugin reset --hard origin/main
+```
+
+3. Rebuild the native runtime and refresh the non-secret configuration:
+
+```powershell
+Set-Location $Plugin
+.\scripts\install-native.ps1
+```
+
+4. Restart the Hermes gateway (or completely restart the Hermes process), then
+   verify:
+
+```powershell
+hermes gateway restart
+hermes camofox-human-auth status
+```
+
+The first login request now starts the patched native backend automatically
+when it is not running, switches it to a visible window for the user, keeps the
+same persistent profile, and returns to headless mode only after the agent calls
+`camofox_auth_finish`.
+
+The setup does not silently replace an existing Hermes browser provider.
 provider is configured, or another provider is active, Hermes explicitly asks
 whether Camofox should be configured.
 

@@ -30,7 +30,7 @@ $WatcherText = [System.IO.File]::ReadAllText($Watcher).Replace([char]13, '')
 [System.IO.File]::WriteAllText($Watcher, $WatcherText, (New-Object System.Text.UTF8Encoding($false)))
 $Dist = Join-Path $Vendor 'dist'
 New-Item -ItemType Directory -Force $Dist | Out-Null
-$CamoufoxUrl = "https://github.com/daijiro/camoufox/releases/download/v135.0.1-beta.24/camoufox-135.0.1-beta.24-lin.$Arch.zip"
+$CamoufoxUrl = "https://github.com/daijro/camoufox/releases/download/v135.0.1-beta.24/camoufox-135.0.1-beta.24-lin.$Arch.zip"
 $YtdlpSuffix = if ($Arch -eq 'aarch64') { '_aarch64' } else { '' }
 $YtdlpUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux$YtdlpSuffix"
 $CamoufoxOut = Join-Path $Dist "camoufox-$Arch.zip"
