@@ -1,5 +1,5 @@
 diff --git a/plugins/vnc/vnc-watcher.sh b/plugins/vnc/vnc-watcher.sh
-index a316a7d..e7d6834 100755
+index a316a7d..e1aa236 100755
 --- a/plugins/vnc/vnc-watcher.sh
 +++ b/plugins/vnc/vnc-watcher.sh
 @@ -10,7 +10,7 @@
@@ -11,7 +11,7 @@ index a316a7d..e7d6834 100755
  
  VNC_PORT="${VNC_PORT:-5900}"
  NOVNC_PORT="${NOVNC_PORT:-6080}"
-@@ -44,13 +44,31 @@ websockify --web "$NOVNC_DIR" "$VNC_BIND:$NOVNC_PORT" "127.0.0.1:$VNC_PORT" >/va
+@@ -44,38 +44,69 @@ websockify --web "$NOVNC_DIR" "$VNC_BIND:$NOVNC_PORT" "127.0.0.1:$VNC_PORT" >/va
  
  log "VNC watcher started -- will attach x11vnc when Camoufox's Xvfb appears"
  
@@ -46,19 +46,58 @@ index a316a7d..e7d6834 100755
 +  FOUND=$(detect_display)
  
    if [ -n "$FOUND" ] && [ "$FOUND" != "$CURRENT_DISPLAY" ]; then
-     # New or changed display -- (re)attach x11vnc
-@@ -72,9 +90,13 @@ while true; do
+-    # New or changed display -- (re)attach x11vnc
++    # New or changed display -- stop the old attachment before switching.
+     if [ -n "$X11VNC_PID" ] && kill -0 "$X11VNC_PID" 2>/dev/null; then
+       log "Camoufox display changed ($CURRENT_DISPLAY -> $FOUND), restarting x11vnc"
+       kill "$X11VNC_PID" 2>/dev/null || true
+       sleep 0.5
      fi
+-
+     CURRENT_DISPLAY="$FOUND"
+-    log "Attaching x11vnc to DISPLAY=$CURRENT_DISPLAY"
+-
+-    X11VNC_ARGS="-display $CURRENT_DISPLAY -forever -shared -rfbport $VNC_PORT -noxdamage -quiet -bg -o /var/log/x11vnc.log"
+-    [ "${VIEW_ONLY:-0}" = "1" ] && X11VNC_ARGS="$X11VNC_ARGS -viewonly"
+-    if [ -n "$PASSFILE" ]; then
+-      X11VNC_ARGS="$X11VNC_ARGS -rfbauth $PASSFILE"
+-    else
+-      X11VNC_ARGS="$X11VNC_ARGS -nopw"
+-    fi
++    X11VNC_PID=""
++  fi
  
-     # shellcheck disable=SC2086
+-    # shellcheck disable=SC2086
 -    x11vnc $X11VNC_ARGS
-+    x11vnc $X11VNC_ARGS || true
-     sleep 1
+-    sleep 1
++  if [ -n "$CURRENT_DISPLAY" ]; then
++    # Refresh by command line instead of trusting a stale PID. x11vnc can exit
++    # while Xvfb keeps the same display; retry whenever that process is absent.
      X11VNC_PID=$(pgrep -f "x11vnc.*-display $CURRENT_DISPLAY" | head -1)
+-    log "x11vnc running (pid=$X11VNC_PID) on DISPLAY=$CURRENT_DISPLAY"
 +    if [ -z "$X11VNC_PID" ]; then
-+      log "x11vnc failed to connect, clearing display for retry"
-+      CURRENT_DISPLAY=""
++      log "Attaching or restarting x11vnc on DISPLAY=$CURRENT_DISPLAY"
++
++      X11VNC_ARGS="-display $CURRENT_DISPLAY -forever -shared -rfbport $VNC_PORT -noxdamage -quiet -bg -o /var/log/x11vnc.log"
++      [ "${VIEW_ONLY:-0}" = "1" ] && X11VNC_ARGS="$X11VNC_ARGS -viewonly"
++      if [ -n "$PASSFILE" ]; then
++        X11VNC_ARGS="$X11VNC_ARGS -rfbauth $PASSFILE"
++      else
++        X11VNC_ARGS="$X11VNC_ARGS -nopw"
++      fi
++
++      # shellcheck disable=SC2086
++      x11vnc $X11VNC_ARGS || true
++      sleep 1
++      X11VNC_PID=$(pgrep -f "x11vnc.*-display $CURRENT_DISPLAY" | head -1)
++      if [ -z "$X11VNC_PID" ]; then
++        log "x11vnc failed to connect, clearing display for retry"
++        CURRENT_DISPLAY=""
++      else
++        log "x11vnc running (pid=$X11VNC_PID) on DISPLAY=$CURRENT_DISPLAY"
++      fi
 +    fi
-     log "x11vnc running (pid=$X11VNC_PID) on DISPLAY=$CURRENT_DISPLAY"
    fi
  
+   sleep 2
+
